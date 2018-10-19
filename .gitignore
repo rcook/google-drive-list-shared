@@ -1,4 +1,5 @@
 .DS_Store
 client_secret.json
+client_id.json
 storage.json
 env/
