@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+import argparse
 import ast
-import itertools
+import csv
 import json
 import time
 import traceback
@@ -14,6 +15,58 @@ SCOPES = "https://www.googleapis.com/auth/drive.readonly.metadata"
 PARENT_FIELDS = ["id", "name", "parents"]
 DETAIL_FIELDS = ["id", "name", "owners", "parents",
                  "permissions", "shared", "webViewLink"]
+CSV_FIELDS = ["name", "url", "owners", "paths", "permissions"]
+
+
+def unicode_escape_char(c):
+    cp = ord(c)
+    if cp <= 0xFF:
+        return f"\\{cp:02o}"
+    elif cp <= 0xFFFF:
+        return f"\\u{cp:04x}"
+    elif cp <= 0xFFFFFFFF:
+        return f"\\U{cp:08x}"
+    else:
+        raise ValueError(f"Cannot encode {c}")
+
+
+SPECIAL_CHARS = [",", "/"]
+SPECIAL_CHAR_ENCODINGS = {c: unicode_escape_char(c) for c in SPECIAL_CHARS}
+
+
+class ItemPath(object):
+    def __init__(self, names):
+        assert isinstance(names, list)
+        self.__names = names
+        self.encoded = encode_item_path(self.__names)
+
+    def append(self, name):
+        return ItemPath(self.__names + [name])
+
+
+def encode_item_name(n):
+    e = json.dumps(n)[1:-1]
+    for c, encoding in SPECIAL_CHAR_ENCODINGS.items():
+        e = e.replace(c, encoding)
+    return e
+
+
+def decode_item_name(e):
+    n = e
+    for c, e in SPECIAL_CHAR_ENCODINGS.items():
+        n = n.replace(e, c)
+    n = json.loads(f"\"{n}\"")
+    return n
+
+
+def encode_item_path(names):
+    p = "/".join([encode_item_name(n) for n in names])
+    return p
+
+
+def decode_item_path(p):
+    es = p.split("/")
+    return [decode_item_name(e) for e in es]
 
 
 class Cache(object):
@@ -36,11 +89,13 @@ class Cache(object):
         def helper(item):
             parent_item_ids = item.get("parents")
             if parent_item_ids:
-                parent_item_paths = itertools.chain.from_iterable(
-                    [self.get_item_paths(x) for x in parent_item_ids])
-                return [f"{x}/{item['name']}" for x in parent_item_paths]
+                parent_item_paths = [self.get_item_paths(
+                    x) for x in parent_item_ids]
+                return [y.append(item["name"])
+                        for x in parent_item_paths
+                        for y in x]
             else:
-                return [item["name"]]
+                return [ItemPath([item["name"]])]
 
         item = self.get_item(item_id)
         item_paths = item.get("__item_paths")
@@ -87,53 +142,50 @@ def format_user(user):
     return f"{user['displayName']} <{user['emailAddress']}>"
 
 
-def format_permission(permission):
-    t = permission["type"]
+def format_grantee(grantee):
+    t = grantee["type"]
     if t == "user":
-        return format_user(permission)
+        return format_user(grantee)
     elif t == "anyone":
         return "(Anyone)"
     else:
         return f"({t})"
 
 
-def show_shared_item(c, item, index):
-    item_paths = c.get_item_paths(item["id"])
-    name = item["name"]
-    owners = item["owners"]
-    url = item["webViewLink"]
-    owners = item["owners"]
-    temp = item.get("permissions")
-    if temp:
-        permissions = [x for x in item["permissions"]
-                       if not x.get("deleted", False)]
-    else:
-        permissions = None
+def write_shared_item(csv_writer, c, item, index):
+    print(f"Shared item ({index + 1}): {item['name']}")
 
-    print(f"Shared item ({index + 1}):")
-    print(f"  Name: {name}")
-    print(f"  Owners:")
-    for x in owners:
-        print(f"    {format_user(x)}")
-    print(f"  URL: {url}")
-    print(f"  Path(s):")
-    for p in item_paths:
-        print(f"    {p}")
+    encoded_name = item["name"]
+    encoded_url = item["webViewLink"]
+    encoded_owners = ",".join(encode_item_name(format_user(x))
+                              for x in item["owners"])
+    encoded_item_paths = ",".join(
+        [x.encoded for x in c.get_item_paths(item["id"])])
+
+    permissions = item.get("permissions")
     if permissions:
-        print(f"  Permissions:")
-        for p in permissions:
-            print(
-                f"    {format_permission(p)} ({p['role']})")
+        filtered_permissions = [
+            x for x in permissions if not x.get("deleted", False)]
+        encoded_permissions = ",".join(
+            [f"{encode_item_name(format_grantee(p))} ({p['role']})" for p in filtered_permissions])
     else:
-        print("  Permissions: (none)")
+        encoded_permissions = ""
+
+    csv_writer.writerow([
+        encoded_name,
+        encoded_url,
+        encoded_owners,
+        encoded_item_paths,
+        encoded_permissions])
 
 
-def show_shared_items(c, items, shared_items):
+def write_shared_items(csv_writer, c, items, shared_items):
+    csv_writer.writerow(CSV_FIELDS)
     print(
         f"You have {len(items)} files in Google Drive of which {len(shared_items)} are shared")
     for i, item in enumerate(shared_items):
         try:
-            show_shared_item(c, item, i)
+            write_shared_item(csv_writer, c, item, i)
         except KeyError as e:
             print(f"FAILURE: {e}")
             print(e)
@@ -142,8 +194,20 @@ def show_shared_items(c, items, shared_items):
             exit(1)
 
 
-service = get_service()
-items = get_all_items(service=service)
-c = Cache(service=service, items=items)
-shared_items = [x for x in items if x["shared"]]
-show_shared_items(c, items, shared_items)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("output_file_name", metavar="OUTPUTFILENAME", type=str)
+    args = parser.parse_args()
+
+    service = get_service()
+    items = get_all_items(service=service)
+    c = Cache(service=service, items=items)
+    shared_items = [x for x in items if x["shared"]]
+
+    with open(args.output_file_name, "w") as csv_file:
+        csv_writer = csv.writer(csv_file)
+        write_shared_items(csv_writer, c, items, shared_items)
+
+
+if __name__ == "__main__":
+    main()
