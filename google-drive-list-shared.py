@@ -13,9 +13,9 @@ from oauth2client import file, client, tools
 
 SCOPES = "https://www.googleapis.com/auth/drive.readonly.metadata"
 PARENT_FIELDS = ["id", "name", "parents"]
-DETAIL_FIELDS = ["id", "name", "owners", "parents",
+DETAIL_FIELDS = ["id", "mimeType", "name", "owners", "parents",
                  "permissions", "shared", "webViewLink"]
-CSV_FIELDS = ["name", "url", "owners", "paths", "permissions"]
+CSV_FIELDS = ["name", "type", "url", "owners", "paths", "permissions"]
 
 
 def unicode_escape_char(c):
@@ -156,6 +156,8 @@ def write_shared_item(csv_writer, c, item, index):
     print(f"Shared item ({index + 1}): {item['name']}")
 
     encoded_name = item["name"]
+
+    encoded_type = "folder" if item["mimeType"] == "application/vnd.google-apps.folder" else "file"
     encoded_url = item["webViewLink"]
     encoded_owners = ",".join(encode_item_name(format_user(x))
                               for x in item["owners"])
@@ -173,6 +175,7 @@ def write_shared_item(csv_writer, c, item, index):
 
     csv_writer.writerow([
         encoded_name,
+        encoded_type,
         encoded_url,
         encoded_owners,
         encoded_item_paths,
