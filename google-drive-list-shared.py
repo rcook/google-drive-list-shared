@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import ast
 import csv
 import datetime
 import json
@@ -127,25 +126,26 @@ def get_service(client_secrets_file_name):
 
 def get_all_items(service, item_limit):
     detail_field_list = ", ".join(DETAIL_FIELDS)
-    results = service.files().list(
-        pageSize=100, fields=f"nextPageToken, files({detail_field_list})").execute()
-    token = results.get("nextPageToken")
-    items = results.get("files", [])
 
-    while token is not None:
+    page_size = 100
+    page_token = None
+    items = []
+
+    while True:
         if item_limit is not None and len(items) > item_limit:
             break
 
-        results = service.files().list(pageSize=1000, pageToken=token,
+        log(f"Found {len(items)} files: requesting {page_size} more")
+        results = service.files().list(pageSize=page_size, pageToken=page_token,
                                        fields=f"nextPageToken, files({detail_field_list})").execute()
-        token = results.get("nextPageToken")
+        page_token = results.get("nextPageToken")
         items.extend(results.get("files", []))
 
-    # Google Drive API does not return valid JSON because the property
-    # names are not enclosed in double quotes, they are enclosed in
-    # single quotes. So, use Python AST to convert the string to an
-    # iterable list.
-    return ast.literal_eval(str(items))
+        page_size = 1000
+        if page_token is None:
+            break
+
+    return items
 
 
 def format_user(user):
