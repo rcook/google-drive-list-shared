@@ -125,7 +125,7 @@ def get_service(client_secrets_file_name):
     return service
 
 
-def get_all_items(service):
+def get_all_items(service, item_limit):
     detail_field_list = ", ".join(DETAIL_FIELDS)
     results = service.files().list(
         pageSize=100, fields=f"nextPageToken, files({detail_field_list})").execute()
@@ -133,6 +133,9 @@ def get_all_items(service):
     items = results.get("files", [])
 
     while token is not None:
+        if item_limit is not None and len(items) > item_limit:
+            break
+
         results = service.files().list(pageSize=1000, pageToken=token,
                                        fields=f"nextPageToken, files({detail_field_list})").execute()
         token = results.get("nextPageToken")
@@ -208,11 +211,16 @@ def main():
                         metavar="CLIENTSECRETSFILENAME", type=os.path.abspath)
     parser.add_argument("output_file_name",
                         metavar="OUTPUTFILENAME", type=os.path.abspath)
+    parser.add_argument("--item-limit",
+                        metavar="ITEMLIMIT",
+                        type=int,
+                        default=None)
+
     args = parser.parse_args()
 
     service = get_service(
         client_secrets_file_name=args.client_secrets_file_name)
-    items = get_all_items(service=service)
+    items = get_all_items(service=service, item_limit=args.item_limit)
     c = Cache(service=service, items=items)
     shared_items = [x for x in items if x["shared"]]
 
