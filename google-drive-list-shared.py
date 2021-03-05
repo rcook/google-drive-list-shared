@@ -3,7 +3,9 @@
 import argparse
 import ast
 import csv
+import datetime
 import json
+import os
 import time
 import traceback
 
@@ -32,6 +34,10 @@ def unicode_escape_char(c):
 
 SPECIAL_CHARS = [",", "/"]
 SPECIAL_CHAR_ENCODINGS = {c: unicode_escape_char(c) for c in SPECIAL_CHARS}
+
+
+def log(message):
+    print(f"[{datetime.datetime.now()}] {message}")
 
 
 class ItemPath(object):
@@ -77,6 +83,7 @@ class Cache(object):
     def get_item(self, item_id):
         item = self.__item_cache.get(item_id)
         if item is None:
+            log(f"Fetching information for file {item_id}")
             item = self.__service.files().get(
                 fileId=item_id, fields=", ".join(PARENT_FIELDS)).execute()
             assert item["id"] == item_id
@@ -107,11 +114,11 @@ class Cache(object):
             return item_paths
 
 
-def get_service():
+def get_service(client_secrets_file_name):
     store = file.Storage("storage.json")
     creds = store.get()
     if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets("client_id.json", SCOPES)
+        flow = client.flow_from_clientsecrets(client_secrets_file_name, SCOPES)
         creds = tools.run_flow(flow, store)
 
     service = discovery.build("drive", "v3", http=creds.authorize(Http()))
@@ -153,10 +160,7 @@ def format_grantee(grantee):
 
 
 def write_shared_item(csv_writer, c, item, index):
-    print(f"Shared item ({index + 1}): {item['name']}")
-
     encoded_name = item["name"]
-
     encoded_type = "folder" if item["mimeType"] == "application/vnd.google-apps.folder" else "file"
     encoded_url = item["webViewLink"]
     encoded_owners = ",".join(encode_item_name(format_user(x))
@@ -184,8 +188,9 @@ def write_shared_item(csv_writer, c, item, index):
 
 def write_shared_items(csv_writer, c, items, shared_items):
     csv_writer.writerow(CSV_FIELDS)
-    print(
-        f"You have {len(items)} files in Google Drive of which {len(shared_items)} are shared")
+    log(f"Found {len(items)} files")
+    log(f"Found {len(shared_items)} shared files")
+
     for i, item in enumerate(shared_items):
         try:
             write_shared_item(csv_writer, c, item, i)
@@ -199,10 +204,14 @@ def write_shared_items(csv_writer, c, items, shared_items):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("output_file_name", metavar="OUTPUTFILENAME", type=str)
+    parser.add_argument("client_secrets_file_name",
+                        metavar="CLIENTSECRETSFILENAME", type=os.path.abspath)
+    parser.add_argument("output_file_name",
+                        metavar="OUTPUTFILENAME", type=os.path.abspath)
     args = parser.parse_args()
 
-    service = get_service()
+    service = get_service(
+        client_secrets_file_name=args.client_secrets_file_name)
     items = get_all_items(service=service)
     c = Cache(service=service, items=items)
     shared_items = [x for x in items if x["shared"]]
