@@ -39,7 +39,7 @@ $HOME/gdscan/gdscan.py --help
 This will display the following help information:
 
 ```
-usage: gdscan.py [-h] [--client-secrets-path CLIENTSECRETSPATH] [--item-limit ITEMLIMIT] [--config-dir CONFIGDIR] [--overwrite] CSVPATH
+usage: gdscan.py [-h] [--client-secrets-path CLIENTSECRETSPATH] [--limit LIMIT] [--config-dir CONFIGDIR] [--overwrite] CSVPATH
 
 positional arguments:
   CSVPATH               Path of CSV file to be generated
@@ -48,7 +48,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --client-secrets-path CLIENTSECRETSPATH, -s CLIENTSECRETSPATH
                         path to Google Drive client secrets/client ID file
-  --item-limit ITEMLIMIT, -n ITEMLIMIT
+  --limit LIMIT, -n LIMIT
                         limit scan to fixed number of shared items (default: (none))
   --config-dir CONFIGDIR, -c CONFIGDIR
                         path to configuration directory (default: $HOME/gdscan)
@@ -70,7 +70,7 @@ $HOME/gdscan/gdscan.py report.csv
 Test that script works by generating report for first five shared items in your Google Drive account:
 
 ```bash
-$HOME/gdscan/gdscan.py --item-limit 5 test.csv
+$HOME/gdscan/gdscan.py --limit 5 test.csv
 ```
 
 ## Inspiration

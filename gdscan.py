@@ -127,7 +127,7 @@ def get_service(config_dir, client_secrets_path):
     return service
 
 
-def get_all_items(service, item_limit):
+def get_all_items(service, limit):
     detail_field_list = ", ".join(DETAIL_FIELDS)
 
     page_size = 100
@@ -135,7 +135,7 @@ def get_all_items(service, item_limit):
     items = []
 
     while True:
-        if item_limit is not None and len(items) > item_limit:
+        if limit is not None and len(items) > limit:
             break
 
         log(f"Found {len(items)} files: requesting {page_size} more")
@@ -224,13 +224,13 @@ def main():
                         default=client_secrets_path_default,
                         help="path to Google Drive client secrets/client ID file")
 
-    item_limit_default = None
-    parser.add_argument("--item-limit",
+    limit_default = None
+    parser.add_argument("--limit",
                         "-n",
-                        metavar="ITEMLIMIT",
+                        metavar="LIMIT",
                         type=int,
-                        default=item_limit_default,
-                        help=f"limit scan to fixed number of shared items (default: {'(none)' if item_limit_default is None else item_limit_default})")
+                        default=limit_default,
+                        help=f"limit scan to fixed number of shared items (default: {'(none)' if limit_default is None else limit_default})")
 
     config_dir_default = os.path.dirname(os.path.abspath(__file__))
     parser.add_argument("--config-dir",
@@ -255,7 +255,7 @@ def main():
     service = get_service(
         config_dir=args.config_dir,
         client_secrets_path=args.client_secrets_path)
-    items = get_all_items(service=service, item_limit=args.item_limit)
+    items = get_all_items(service=service, limit=args.limit)
     c = Cache(service=service, items=items)
     shared_items = [x for x in items if x["shared"]]
 
