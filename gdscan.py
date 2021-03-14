@@ -211,10 +211,10 @@ def write_shared_items(csv_writer, c, items, shared_items):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("output_path",
-                        metavar="OUTPUTPATH",
+    parser.add_argument("csv_path",
+                        metavar="CSVPATH",
                         type=os.path.abspath,
-                        help="Path to output CSV file to be generated")
+                        help="Path of CSV file to be generated")
 
     client_secrets_path_default = os.path.expanduser("~/client_id.json")
     parser.add_argument("--client-secrets-path",
@@ -243,13 +243,13 @@ def main():
     parser.add_argument("--overwrite",
                         "-f",
                         action="store_true",
-                        help="force overwrite of output CSV file if it already exists")
+                        help="force overwrite of CSV file if it already exists")
 
     args = parser.parse_args()
 
-    if os.path.exists(args.output_path) and not args.overwrite:
+    if os.path.exists(args.csv_path) and not args.overwrite:
         print(
-            f"File {args.output_path} already exists: use --overwrite to overwrite", file=sys.stderr)
+            f"File {args.csv_path} already exists: use --overwrite to overwrite", file=sys.stderr)
         exit(1)
 
     service = get_service(
@@ -259,7 +259,7 @@ def main():
     c = Cache(service=service, items=items)
     shared_items = [x for x in items if x["shared"]]
 
-    with open(args.output_path, "w") as csv_file:
+    with open(args.csv_path, "w") as csv_file:
         csv_writer = csv.writer(csv_file)
         write_shared_items(csv_writer, c, items, shared_items)
 

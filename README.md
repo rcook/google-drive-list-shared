@@ -36,23 +36,23 @@ This will run the script and display its command-line help:
 $HOME/gdscan/gdscan.py --help
 ```
 
-This will display help like the following:
+This will display the following help information:
 
 ```
-usage: gdscan.py [-h] [--client-secrets-path CLIENTSECRETSPATH] [--item-limit ITEMLIMIT] [--config-dir CONFIGDIR] [--overwrite] OUTPUTPATH
+usage: gdscan.py [-h] [--client-secrets-path CLIENTSECRETSPATH] [--item-limit ITEMLIMIT] [--config-dir CONFIGDIR] [--overwrite] CSVPATH
 
 positional arguments:
-  OUTPUTPATH            Path to output CSV file to be generated
+  CSVPATH               Path of CSV file to be generated
 
 optional arguments:
   -h, --help            show this help message and exit
   --client-secrets-path CLIENTSECRETSPATH, -s CLIENTSECRETSPATH
-                        Path to Google Drive client secrets/client ID file
+                        path to Google Drive client secrets/client ID file
   --item-limit ITEMLIMIT, -n ITEMLIMIT
                         limit scan to fixed number of shared items (default: (none))
   --config-dir CONFIGDIR, -c CONFIGDIR
                         path to configuration directory (default: $HOME/gdscan)
-  --overwrite, -f       force overwrite of output CSV file if it already exists
+  --overwrite, -f       force overwrite of CSV file if it already exists
 ```
 
 ### Obtain Google Drive API client secret
