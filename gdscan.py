@@ -5,6 +5,7 @@ import csv
 import datetime
 import json
 import os
+import sys
 import time
 import traceback
 
@@ -113,11 +114,13 @@ class Cache(object):
             return item_paths
 
 
-def get_service(client_secrets_file_name):
-    store = file.Storage("storage.json")
+def get_service(config_dir, client_secrets_path):
+    storage_path = os.path.join(config_dir, "storage.json")
+    store = file.Storage(storage_path)
+
     creds = store.get()
     if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets(client_secrets_file_name, SCOPES)
+        flow = client.flow_from_clientsecrets(client_secrets_path, SCOPES)
         creds = tools.run_flow(flow, store)
 
     service = discovery.build("drive", "v3", http=creds.authorize(Http()))
@@ -207,24 +210,56 @@ def write_shared_items(csv_writer, c, items, shared_items):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("client_secrets_file_name",
-                        metavar="CLIENTSECRETSFILENAME", type=os.path.abspath)
-    parser.add_argument("output_file_name",
-                        metavar="OUTPUTFILENAME", type=os.path.abspath)
+
+    parser.add_argument("output_path",
+                        metavar="OUTPUTPATH",
+                        type=os.path.abspath,
+                        help="Path to output CSV file to be generated")
+
+    client_secrets_path_default = os.path.expanduser("~/client_id.json")
+    parser.add_argument("--client-secrets-path",
+                        "-s",
+                        metavar="CLIENTSECRETSPATH",
+                        type=os.path.abspath,
+                        default=client_secrets_path_default,
+                        help="Path to Google Drive client secrets/client ID file")
+
+    item_limit_default = None
     parser.add_argument("--item-limit",
+                        "-n",
                         metavar="ITEMLIMIT",
                         type=int,
-                        default=None)
+                        default=item_limit_default,
+                        help=f"limit scan to fixed number of shared items (default: {'(none)' if item_limit_default is None else item_limit_default})")
+
+    config_dir_default = os.path.dirname(os.path.abspath(__file__))
+    parser.add_argument("--config-dir",
+                        "-c",
+                        metavar="CONFIGDIR",
+                        type=os.path.abspath,
+                        default=config_dir_default,
+                        help=f"path to configuration directory (default: {config_dir_default})")
+
+    parser.add_argument("--overwrite",
+                        "-f",
+                        action="store_true",
+                        help="force overwrite of output CSV file if it already exists")
 
     args = parser.parse_args()
 
+    if os.path.exists(args.output_path) and not args.overwrite:
+        print(
+            f"File {args.output_path} already exists: use --overwrite to overwrite", file=sys.stderr)
+        exit(1)
+
     service = get_service(
-        client_secrets_file_name=args.client_secrets_file_name)
+        config_dir=args.config_dir,
+        client_secrets_path=args.client_secrets_path)
     items = get_all_items(service=service, item_limit=args.item_limit)
     c = Cache(service=service, items=items)
     shared_items = [x for x in items if x["shared"]]
 
-    with open(args.output_file_name, "w") as csv_file:
+    with open(args.output_path, "w") as csv_file:
         csv_writer = csv.writer(csv_file)
         write_shared_items(csv_writer, c, items, shared_items)
 
