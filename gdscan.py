@@ -222,7 +222,7 @@ def main():
                         metavar="CLIENTSECRETSPATH",
                         type=os.path.abspath,
                         default=client_secrets_path_default,
-                        help="Path to Google Drive client secrets/client ID file")
+                        help="path to Google Drive client secrets/client ID file")
 
     item_limit_default = None
     parser.add_argument("--item-limit",
